@@ -65,19 +65,19 @@ flowchart LR
     OA[OMS API] --> IN[Ingestion Facade]
     EA[EMS API] --> IN
 
-    IN --> V[Validator Chain (可选)]
+    IN --> V[Validator Chain - 可选]
     V --> ROUTER[Dispatch Strategy]
 
     ROUTER -->|sync=true| CORE[Reconciliation Service]
-    ROUTER -->|async=true| KAFKA[(Kafka Topic (可选))]
-    KAFKA --> CONSUMER[Async Consumer (可选)]
+    ROUTER -->|async=true| KAFKA[(Kafka Topic - 可选)]
+    KAFKA --> CONSUMER[Async Consumer - 可选]
     CONSUMER --> CORE
 
     CORE --> STORE[(State Store)]
     CORE --> RESULT[(Result Store)]
 
-    CORE --> RULES[Rule Engine Adapter (可选)]
-    CORE --> RETRY[Retry/DLQ Adapter (可选)]
+    CORE --> RULES[Rule Engine Adapter - 可选]
+    CORE --> RETRY[Retry/DLQ Adapter - 可选]
 
     Q[Query API] --> RESULT
 
