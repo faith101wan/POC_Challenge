@@ -61,31 +61,32 @@ flowchart LR
 > 下图用于指导后续“参数开关/适配器”演进。标记为 `(可选)` 的组件在当前 POC 中不实现，仅预留接口。
 
 ```mermaid
+```mermaid
 flowchart LR
     OA[OMS API] --> IN[Ingestion Facade]
     EA[EMS API] --> IN
 
-    IN --> V[Validator Chain - 可选]
+    IN --> V[Validator Chain - optional]
     V --> ROUTER[Dispatch Strategy]
 
-    ROUTER -->|sync=true| CORE[Reconciliation Service]
-    ROUTER -->|async=true| KAFKA[(Kafka Topic - 可选)]
-    KAFKA --> CONSUMER[Async Consumer - 可选]
+    ROUTER --> CORE[Reconciliation Service]
+    ROUTER --> KAFKA[(Kafka Topic - optional)]
+    KAFKA --> CONSUMER[Async Consumer - optional]
     CONSUMER --> CORE
 
     CORE --> STORE[(State Store)]
     CORE --> RESULT[(Result Store)]
 
-    CORE --> RULES[Rule Engine Adapter - 可选]
-    CORE --> RETRY[Retry/DLQ Adapter - 可选]
+    CORE --> RULES[Rule Engine Adapter - optional]
+    CORE --> RETRY[Retry DLQ Adapter - optional]
 
     Q[Query API] --> RESULT
 
-    subgraph Feature Toggle / Config
-      CFG1[recon.pipeline.mode = sync / async]
-      CFG2[recon.validation.enabled = true / false]
-      CFG3[recon.ruleEngine.enabled = true / false]
-      CFG4[recon.retry.enabled = true / false]
+    subgraph FeatureToggleConfig
+        CFG1[recon.pipeline.mode sync or async]
+        CFG2[recon.validation.enabled true or false]
+        CFG3[recon.ruleEngine.enabled true or false]
+        CFG4[recon.retry.enabled true or false]
     end
 
     CFG1 -.-> ROUTER
