@@ -17,11 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class EmsController {
 
     @Autowired
-    private  ReconciliationService reconciliationService;
+    private ReconciliationService service;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ReconciliationResult submit(@Valid @RequestBody ExecutionEvent event) {
-        return reconciliationService.submitExecution(event);
+        return service.submitExecution(event);
     }
 }

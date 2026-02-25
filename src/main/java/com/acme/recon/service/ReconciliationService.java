@@ -1,10 +1,19 @@
 package com.acme.recon.service;
 
+import com.acme.recon.extension.dispatch.DispatchResult;
+import com.acme.recon.extension.dispatch.DispatchStrategyFactory;
+import com.acme.recon.extension.retry.RetryAdapter;
+import com.acme.recon.extension.retry.RetryResult;
+import com.acme.recon.extension.rule.RuleDecision;
+import com.acme.recon.extension.rule.RuleEngineAdapter;
+import com.acme.recon.extension.validation.ValidationResult;
+import com.acme.recon.extension.validation.ValidatorChain;
 import com.acme.recon.model.ExecutionEvent;
 import com.acme.recon.model.OrderEvent;
 import com.acme.recon.model.ReconciliationResult;
 import com.acme.recon.model.ReconciliationStatus;
 import com.acme.recon.repository.InMemoryReconciliationRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -13,19 +22,31 @@ import java.util.Collection;
 @Service
 public class ReconciliationService {
 
-    private final InMemoryReconciliationRepository repository;
+    @Autowired
+    private InMemoryReconciliationRepository repository;
 
-    public ReconciliationService(InMemoryReconciliationRepository repository) {
-        this.repository = repository;
-    }
+    @Autowired
+    private DispatchStrategyFactory dispatchStrategyFactory;
+
+    @Autowired
+    private ValidatorChain validatorChain;
+
+    @Autowired
+    private RuleEngineAdapter ruleEngineAdapter;
+
+    @Autowired
+    private RetryAdapter retryAdapter;
 
     public ReconciliationResult submitOrder(OrderEvent event) {
-        String bizKey = bizKey(event.accountId(), event.orderId());
-        repository.saveOrderQty(bizKey, event.quantity());
+        validateOrderEvent(event);
+        dispatchOrderEvent(event);
+
+        String bizKey = bizKey(event.getAccountId(), event.getOrderId());
+        repository.saveOrderQty(bizKey, event.getQuantity());
 
         ReconciliationResult result = new ReconciliationResult(
-                event.accountId(),
-                event.orderId(),
+                event.getAccountId(),
+                event.getOrderId(),
                 ReconciliationStatus.MISSING_EXECUTION,
                 "Order received, waiting for execution",
                 Instant.now()
@@ -35,6 +56,9 @@ public class ReconciliationService {
     }
 
     public ReconciliationResult submitExecution(ExecutionEvent event) {
+        validateExecutionEvent(event);
+        dispatchExecutionEvent(event);
+
         String bizKey = bizKey(event.getAccountId(), event.getOrderId());
         Long orderQty = repository.findOrderQty(bizKey);
 
@@ -85,6 +109,32 @@ public class ReconciliationService {
 
     public Collection<ReconciliationResult> listResults() {
         return repository.listResults();
+    }
+
+    // ===== Extension entry methods (placeholder implementation) =====
+
+    public ValidationResult validateOrderEvent(OrderEvent event) {
+        return validatorChain.validateOrder(event);
+    }
+
+    public ValidationResult validateExecutionEvent(ExecutionEvent event) {
+        return validatorChain.validateExecution(event);
+    }
+
+    public DispatchResult dispatchOrderEvent(OrderEvent event) {
+        return dispatchStrategyFactory.current().dispatchOrder(event);
+    }
+
+    public DispatchResult dispatchExecutionEvent(ExecutionEvent event) {
+        return dispatchStrategyFactory.current().dispatchExecution(event);
+    }
+
+    public RuleDecision evaluateRuleEngine(Object context) {
+        return ruleEngineAdapter.evaluate(context);
+    }
+
+    public RetryResult submitToRetry(String bizKey, Object payload) {
+        return retryAdapter.submit(bizKey, payload);
     }
 
     private String bizKey(String accountId, String orderId) {

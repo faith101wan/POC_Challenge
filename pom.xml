@@ -16,7 +16,7 @@
     <description>Minimal Spring Boot POC for OMS/EMS reconciliation</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <!-- avoid release conflicts in some IDE toolchains when extra add-exports are injected -->
