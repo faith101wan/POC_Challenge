@@ -82,10 +82,10 @@ flowchart LR
     Q[Query API] --> RESULT
 
     subgraph Feature Toggle / Config
-      CFG1[recon.pipeline.mode = sync|async]
-      CFG2[recon.validation.enabled = true|false]
-      CFG3[recon.ruleEngine.enabled = true|false]
-      CFG4[recon.retry.enabled = true|false]
+      CFG1[recon.pipeline.mode = sync / async]
+      CFG2[recon.validation.enabled = true / false]
+      CFG3[recon.ruleEngine.enabled = true / false]
+      CFG4[recon.retry.enabled = true / false]
     end
 
     CFG1 -.-> ROUTER
