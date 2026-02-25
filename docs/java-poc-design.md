@@ -26,7 +26,7 @@
 - REST 输入 + REST 查询
 - 单线程/小并发可运行
 
-### 本次不做
+### 本次不做（但保留后续扩展入口）
 - Kafka、Disruptor、Watermark、复杂窗口
 - 多级规则引擎
 - 分布式事务、消息重试平台
@@ -36,7 +36,7 @@
 
 ---
 
-## 3. 轻量架构图
+## 3. 轻量架构图（当前实现）
 
 ```mermaid
 flowchart LR
@@ -56,7 +56,62 @@ flowchart LR
 
 ---
 
-## 4. 核心流程图（只保留主线）
+## 4. 扩展架构图（预留入口，不在本次实现）
+
+> 下图用于指导后续“参数开关/适配器”演进。标记为 `[[可选]]` 的组件在当前 POC 中不实现，仅预留接口。
+
+```mermaid
+flowchart LR
+    OA[OMS API] --> IN[Ingestion Facade]
+    EA[EMS API] --> IN
+
+    IN --> V[Validator Chain [[可选]]]
+    V --> ROUTER[Dispatch Strategy]
+
+    ROUTER -->|sync=true| CORE[Reconciliation Service]
+    ROUTER -->|async=true| KAFKA[(Kafka Topic [[可选]] )]
+    KAFKA --> CONSUMER[Async Consumer [[可选]]]
+    CONSUMER --> CORE
+
+    CORE --> STORE[(State Store)]
+    CORE --> RESULT[(Result Store)]
+
+    CORE --> RULES[Rule Engine Adapter [[可选]]]
+    CORE --> RETRY[Retry/DLQ Adapter [[可选]]]
+
+    Q[Query API] --> RESULT
+
+    subgraph Feature Toggle / Config
+      CFG1[recon.pipeline.mode = sync|async]
+      CFG2[recon.validation.enabled = true|false]
+      CFG3[recon.ruleEngine.enabled = true|false]
+      CFG4[recon.retry.enabled = true|false]
+    end
+
+    CFG1 -.-> ROUTER
+    CFG2 -.-> V
+    CFG3 -.-> RULES
+    CFG4 -.-> RETRY
+```
+
+### 4.1 设计意图（本次先不写代码）
+- **策略模式（Dispatch Strategy）**：根据配置决定走同步直连服务，还是异步 Kafka 通道。
+- **适配器模式（Adapter）**：
+   - `Rule Engine Adapter`：后续可接 Drools/自研规则服务；
+   - `Retry/DLQ Adapter`：后续可接消息重试与死信处理。
+- **验证链（Validator Chain）**：把字段校验、业务校验拆成可插拔链路。
+
+### 4.2 建议预留配置键（后续实现）
+- `recon.pipeline.mode=sync`（默认）
+- `recon.validation.enabled=false`
+- `recon.ruleEngine.enabled=false`
+- `recon.retry.enabled=false`
+- `recon.kafka.topic.orders=oms-events`
+- `recon.kafka.topic.execs=ems-events`
+
+---
+
+## 5. 核心流程图（当前主线）
 
 ```mermaid
 sequenceDiagram
@@ -84,7 +139,29 @@ sequenceDiagram
 
 ---
 
-## 5. 最小领域模型
+## 6. 核心流程图（扩展异步版，后续）
+
+```mermaid
+sequenceDiagram
+    participant O as OMS API
+    participant I as IngestionFacade
+    participant K as Kafka [[可选]]
+    participant C as AsyncConsumer [[可选]]
+    participant R as ReconciliationService
+
+    O->>I: submit order event
+    alt recon.pipeline.mode=sync
+      I->>R: direct dispatch
+    else recon.pipeline.mode=async
+      I->>K: publish event
+      K->>C: consume event
+      C->>R: process event
+    end
+```
+
+---
+
+## 7. 最小领域模型
 
 ```text
 OrderEvent
@@ -110,7 +187,7 @@ ReconciliationResult
 
 ---
 
-## 6. 代码结构（可在几小时内落地）
+## 8. 代码结构（当前实现 + 预留扩展位）
 
 ```text
 src/main/java/com/acme/recon/
@@ -125,26 +202,25 @@ src/main/java/com/acme/recon/
 │  ├─ OrderEvent.java
 │  ├─ ExecutionEvent.java
 │  └─ ReconciliationResult.java
-└─ repository/
-   └─ InMemoryReconciliationRepository.java
+├─ repository/
+│  └─ InMemoryReconciliationRepository.java
+└─ extension/                    # 预留，不在本次实现
+   ├─ dispatch/
+   │  ├─ DispatchStrategy.java
+   │  ├─ SyncDispatchStrategy.java
+   │  └─ KafkaDispatchStrategy.java
+   ├─ validation/
+   │  ├─ Validator.java
+   │  └─ ValidatorChain.java
+   ├─ rule/
+   │  └─ RuleEngineAdapter.java
+   └─ retry/
+      └─ RetryAdapter.java
 ```
 
 ---
 
-## 7. 核心算法（面试可讲）
-
-1. `submitOrder`：按 `accountId+orderId` 写入订单状态。
-2. `submitExecution`：
-   - 若不存在订单：记为 `MISSING_EXECUTION`；
-   - 若 `execId` 已出现：记为 `DUPLICATE_EXECUTION`；
-   - 否则累计并比较数量，相等则 `MATCHED`。
-3. `listResults`：返回最新对账状态。
-
-> 这个算法简单但体现业务抽象、幂等意识（`execId` 去重）与可测试性。
-
----
-
-## 8. API 设计（最小集合）
+## 9. API 设计（最小集合）
 
 - `POST /api/oms/events`
 - `POST /api/ems/events`
@@ -157,18 +233,21 @@ src/main/java/com/acme/recon/
 
 ---
 
-## 9. Docker 与运行（轻量）
+## 10. Docker 与运行（轻量）
 
 - 单个 `Dockerfile` 即可；`docker-compose.yml` 可选。
-- 启动命令：`./gradlew bootRun` 或 `docker run ...`
+- 启动命令：`mvn spring-boot:run` 或 `docker run ...`
 
 ---
 
-## 10. 面试表达建议（强调取舍）
+## 11. 下一步改代码建议（按优先级）
 
-你可以明确说：
-- “我刻意收敛范围，只实现最关键的对账闭环。”
-- “复杂并发和流处理是下一步演进，不放在首版 POC。”
-- “首版先保证可解释、可运行、可验证。”
+1. 先加 `DispatchStrategy` 接口与 `sync` 默认实现（不引入 Kafka 依赖）。
+2. 增加 `@ConfigurationProperties` 读取 `recon.pipeline.mode`。
+3. 再补 `KafkaDispatchStrategy` 空实现（方法体可 TODO）。
+4. 最后再把 `ValidatorChain` / `RuleEngineAdapter` / `RetryAdapter` 以开关接入。
 
-这会非常贴合题目里的“强调轻量化”。
+这样能做到：
+- **本次可跑**（核心闭环不受影响）
+- **后续可扩**（接口和开关已就位）
+- **面试可讲**（清楚的演进路线）
