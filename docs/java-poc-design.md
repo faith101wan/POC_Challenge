@@ -58,26 +58,26 @@ flowchart LR
 
 ## 4. 扩展架构图（预留入口，不在本次实现）
 
-> 下图用于指导后续“参数开关/适配器”演进。标记为 `[[可选]]` 的组件在当前 POC 中不实现，仅预留接口。
+> 下图用于指导后续“参数开关/适配器”演进。标记为 `(可选)` 的组件在当前 POC 中不实现，仅预留接口。
 
 ```mermaid
 flowchart LR
     OA[OMS API] --> IN[Ingestion Facade]
     EA[EMS API] --> IN
 
-    IN --> V[Validator Chain [[可选]]]
+    IN --> V[Validator Chain (可选)]
     V --> ROUTER[Dispatch Strategy]
 
     ROUTER -->|sync=true| CORE[Reconciliation Service]
-    ROUTER -->|async=true| KAFKA[(Kafka Topic [[可选]] )]
-    KAFKA --> CONSUMER[Async Consumer [[可选]]]
+    ROUTER -->|async=true| KAFKA[(Kafka Topic (可选))]
+    KAFKA --> CONSUMER[Async Consumer (可选)]
     CONSUMER --> CORE
 
     CORE --> STORE[(State Store)]
     CORE --> RESULT[(Result Store)]
 
-    CORE --> RULES[Rule Engine Adapter [[可选]]]
-    CORE --> RETRY[Retry/DLQ Adapter [[可选]]]
+    CORE --> RULES[Rule Engine Adapter (可选)]
+    CORE --> RETRY[Retry/DLQ Adapter (可选)]
 
     Q[Query API] --> RESULT
 
@@ -97,8 +97,8 @@ flowchart LR
 ### 4.1 设计意图（本次先不写代码）
 - **策略模式（Dispatch Strategy）**：根据配置决定走同步直连服务，还是异步 Kafka 通道。
 - **适配器模式（Adapter）**：
-   - `Rule Engine Adapter`：后续可接 Drools/自研规则服务；
-   - `Retry/DLQ Adapter`：后续可接消息重试与死信处理。
+  - `Rule Engine Adapter`：后续可接 Drools/自研规则服务；
+  - `Retry/DLQ Adapter`：后续可接消息重试与死信处理。
 - **验证链（Validator Chain）**：把字段校验、业务校验拆成可插拔链路。
 
 ### 4.2 建议预留配置键（后续实现）
@@ -145,8 +145,8 @@ sequenceDiagram
 sequenceDiagram
     participant O as OMS API
     participant I as IngestionFacade
-    participant K as Kafka [[可选]]
-    participant C as AsyncConsumer [[可选]]
+    participant K as Kafka (可选)
+    participant C as AsyncConsumer (可选)
     participant R as ReconciliationService
 
     O->>I: submit order event
