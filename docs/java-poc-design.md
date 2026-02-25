@@ -60,7 +60,7 @@ flowchart LR
 
 > 下图用于指导后续“参数开关/适配器”演进。标记为 `(可选)` 的组件在当前 POC 中不实现，仅预留接口。
 
-```mermaid
+
 ```mermaid
 flowchart LR
     OA[OMS API] --> IN[Ingestion Facade]
